@@ -8,12 +8,25 @@ const app = new Hono();
 const endpoint = Deno.env.get("ENDPOINT") || "";
 const aPubUrl = Deno.env.get("APUB_URL") || "";
 
-async function getNikkanArticle(url: string): Promise<string> {
+interface Article {
+  text: string;
+  images: string[];
+}
+
+async function getNikkanArticle(url: string): Promise<Article> {
   const res = await fetch(url);
   const text = await res.text();
+
   // parse text
   const parser = new DOMParser();
   const doc = parser.parseFromString(text, "text/html");
+
+  const main = doc?.querySelector("#articleMain");
+  const innerHtml = main?.innerHTML;
+  const imgUrls = innerHtml?.match(/background-image: url\((.+?)\)/g)?.map((s) =>
+    s.replace(/background-image: url\((.+?)\)/, "$1").replace('w200', 'w500')
+  );
+
   const title = doc?.querySelector("header.article-title h1")?.textContent
     .trim();
   const body = doc?.querySelectorAll("div#news p");
@@ -25,18 +38,18 @@ async function getNikkanArticle(url: string): Promise<string> {
       "\n";
   }
   content += url;
-  return content;
+  return {
+    text: content,
+    images: imgUrls || [],
+  };
 }
-
-async function postToMastodon(content: string): Promise<void> {
+async function postToMastodon(article: Article): Promise<void> {
   const res = await fetch(aPubUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      "text": content,
-    }),
+    body: JSON.stringify(article),
   });
   console.log(res);
   if (res.status !== 200) {
@@ -48,9 +61,9 @@ app.post(endpoint, async (c) => {
   const json = await c.req.json();
   const url = json.url;
   // get Article
-  const content = await getNikkanArticle(url);
+  const article = await getNikkanArticle(url);
   // post to mastodon
-  await postToMastodon(content);
+  await postToMastodon(article);
 
   c.status(200);
   return c.json({ result: "ok" });
