@@ -30,12 +30,14 @@ async function getNikkanArticle(url: string): Promise<Article> {
   const title = doc?.querySelector("header.article-title h1")?.textContent
     .trim();
   const body = doc?.querySelectorAll("div#news p");
+  if (!title || !body) {
+    throw new Error("Failed to parse article");
+  }
 
-  let content = title + "\n\n";
-  for (let i = 0; i < body!.length; i++) {
-    const p = body![i];
-    content += p.textContent.replaceAll("。", "。\n").replace(/」$/ig, "」\n") +
-      "\n";
+  let content = `${title}\n\n`;
+  for (let i = 0; i < body.length; i++) {
+    const p = body[i];
+    content += `${p.textContent.replaceAll("。", "。\n").replace(/」$/ig, "」\n")}\n`;
   }
   content += url;
   return {
@@ -43,7 +45,7 @@ async function getNikkanArticle(url: string): Promise<Article> {
     images: imgUrls || [],
   };
 }
-async function postToMastodon(article: Article): Promise<void> {
+async function postToApub(article: Article): Promise<string> {
   const res = await fetch(aPubUrl, {
     method: "POST",
     headers: {
@@ -55,6 +57,8 @@ async function postToMastodon(article: Article): Promise<void> {
   if (res.status !== 200) {
     throw new Error("Failed to post to Mastodon");
   }
+
+  return res.json();
 }
 
 app.post(endpoint, async (c) => {
@@ -63,7 +67,8 @@ app.post(endpoint, async (c) => {
   // get Article
   const article = await getNikkanArticle(url);
   // post to mastodon
-  await postToMastodon(article);
+  const postedUrl = await postToApub(article);
+  console.log(postedUrl);
 
   c.status(200);
   return c.json({ result: "ok" });
