@@ -71,7 +71,7 @@ async function postToDiscord(url: string): Promise<void> {
     body: JSON.stringify({ content: url }),
   });
   console.log(res);
-  if (res.status !== 200) {
+  if (res.status !== 204) {
     throw new Error("Failed to post to Discord");
   }
 }
