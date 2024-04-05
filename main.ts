@@ -7,6 +7,7 @@ import "https://deno.land/x/dotenv@v3.2.2/load.ts";
 const app = new Hono();
 const endpoint = Deno.env.get("ENDPOINT") || "";
 const aPubUrl = Deno.env.get("APUB_URL") || "";
+const discordUrl = Deno.env.get("DISCORD_WEBHOOK") || "";
 
 interface Article {
   text: string;
@@ -61,9 +62,25 @@ async function postToApub(article: Article): Promise<string> {
   return res.json();
 }
 
+async function postToDiscord(url: string): Promise<void> {
+  const res = await fetch(discordUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content: url }),
+  });
+  console.log(res);
+  if (res.status !== 200) {
+    throw new Error("Failed to post to Discord");
+  }
+}
+
 app.post(endpoint, async (c) => {
   const json = await c.req.json();
   const url = json.url;
+  // post to discord
+  await postToDiscord(discordUrl);
   // get Article
   const article = await getNikkanArticle(url);
   // post to mastodon
