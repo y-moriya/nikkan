@@ -80,7 +80,7 @@ app.post(endpoint, async (c) => {
   const json = await c.req.json();
   const url = json.url;
   // post to discord
-  await postToDiscord(discordUrl);
+  await postToDiscord(url);
   // get Article
   const article = await getNikkanArticle(url);
   // post to mastodon
